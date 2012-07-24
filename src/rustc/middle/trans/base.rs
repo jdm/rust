@@ -276,6 +276,7 @@ fn alloca_zeroed(cx: block, t: TypeRef) -> ValueRef {
 fn alloca_maybe_zeroed(cx: block, t: TypeRef, zero: bool) -> ValueRef {
     let _icx = cx.insn_ctxt(~"alloca");
     if cx.unreachable { ret llvm::LLVMGetUndef(t); }
+    debuginfo::reset_debuginfo(cx);
     let initcx = raw_block(cx.fcx, false, cx.fcx.llstaticallocas);
     let p = Alloca(initcx, t);
     if zero { Store(initcx, C_null(t), p); }
@@ -4165,6 +4166,7 @@ fn init_local(bcx: block, local: @ast::local) -> block {
 
 fn trans_stmt(cx: block, s: ast::stmt) -> block {
     let _icx = cx.insn_ctxt(~"trans_stmt");
+    debuginfo::update_source_pos(cx, s.span);
     #debug["trans_stmt(%s)", stmt_to_str(s)];
 
     if !cx.sess().no_asm_comments() {
@@ -4172,7 +4174,6 @@ fn trans_stmt(cx: block, s: ast::stmt) -> block {
     }
 
     let mut bcx = cx;
-    debuginfo::update_source_pos(cx, s.span);
 
     alt s.node {
       ast::stmt_expr(e, _) | ast::stmt_semi(e, _) {
@@ -4431,13 +4432,11 @@ fn trans_block(bcx: block, b: ast::blk, dest: dest)
     let mut bcx = bcx;
     do block_locals(b) |local| { bcx = alloc_local(bcx, local); };
     for vec::each(b.node.stmts) |s| {
-        debuginfo::update_source_pos(bcx, b.span);
         bcx = trans_stmt(bcx, *s);
     }
     alt b.node.expr {
       some(e) {
         let bt = ty::type_is_bot(expr_ty(bcx, e));
-        debuginfo::update_source_pos(bcx, e.span);
         bcx = trans_expr(bcx, e, if bt { ignore } else { dest });
       }
       _ { assert dest == ignore || bcx.unreachable; }
@@ -4578,8 +4577,12 @@ fn finish_fn(fcx: fn_ctxt, lltop: BasicBlockRef) {
 
 fn tie_up_header_blocks(fcx: fn_ctxt, lltop: BasicBlockRef) {
     let _icx = fcx.insn_ctxt(~"tie_up_header_blocks");
-    Br(raw_block(fcx, false, fcx.llstaticallocas), fcx.llloadenv);
-    Br(raw_block(fcx, false, fcx.llloadenv), lltop);
+    let bcx = raw_block(fcx, false, fcx.llstaticallocas);
+    debuginfo::reset_debuginfo(bcx);
+    Br(bcx, fcx.llloadenv);
+    let bcx = raw_block(fcx, false, fcx.llloadenv);
+    debuginfo::reset_debuginfo(bcx);
+    Br(bcx, lltop);
 }
 
 enum self_arg { impl_self(ty::t), no_self, }

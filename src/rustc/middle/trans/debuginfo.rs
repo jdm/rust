@@ -19,6 +19,7 @@ export create_arg;
 export update_source_pos;
 export debug_ctxt;
 export mk_ctxt;
+export reset_debuginfo;
 
 const LLVMDebugVersion: int = (9 << 16);
 
@@ -728,6 +729,17 @@ fn update_source_pos(cx: block, s: span) {
                      llnull()];
     let dbgscope = llmdnode(scopedata);
     llvm::LLVMSetCurrentDebugLocation(trans::build::B(cx), dbgscope);
+}
+
+/*class DebugInfoInhibitor {
+    let 
+}*/
+
+fn reset_debuginfo(cx: block) {
+    if !cx.sess().opts.debuginfo {
+        ret;
+    }
+    llvm::LLVMSetCurrentDebugLocation(trans::build::B(cx), llnull());
 }
 
 fn create_function(fcx: fn_ctxt) -> @metadata<subprogram_md> {
