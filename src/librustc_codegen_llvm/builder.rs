@@ -1,5 +1,6 @@
 use crate::common::Funclet;
 use crate::context::CodegenCx;
+use crate::debuginfo::metadata::type_metadata;
 use crate::llvm::{self, BasicBlock, False};
 use crate::llvm::{AtomicOrdering, AtomicRmwBinOp, SynchronizationScope};
 use crate::type_::Type;
@@ -1035,6 +1036,14 @@ impl BuilderMethods<'a, 'tcx> for Builder<'a, 'll, 'tcx> {
 
     fn do_not_inline(&mut self, llret: &'ll Value) {
         llvm::Attribute::NoInline.apply_callsite(llvm::AttributePlace::Function, llret);
+    }
+
+    fn mark_heap_allocation(&mut self, llcall: &'ll Value, type_: Ty<'tcx>) {
+        let name = b"heapallocsite";
+        let type_metadata = type_metadata(self.cx, type_, rustc_span::DUMMY_SP);
+        unsafe {
+            llvm::LLVMRustInstructionSetMetadata(llcall, name.as_ptr() as _, name.len(), type_metadata);
+        }
     }
 }
 

@@ -107,6 +107,7 @@ impl<'a, 'tcx> TerminatorCodegenHelper<'tcx> {
         bx: &mut Bx,
         fn_abi: FnAbi<'tcx, Ty<'tcx>>,
         fn_ptr: Bx::Value,
+        callee_instance: Option<Instance<'tcx>>,
         llargs: &[Bx::Value],
         destination: Option<(ReturnDest<'tcx, Bx::Value>, mir::BasicBlock)>,
         cleanup: Option<mir::BasicBlock>,
@@ -119,7 +120,7 @@ impl<'a, 'tcx> TerminatorCodegenHelper<'tcx> {
             };
             let invokeret =
                 bx.invoke(fn_ptr, &llargs, ret_bx, self.llblock(fx, cleanup), self.funclet(fx));
-            bx.apply_attrs_callsite(&fn_abi, invokeret);
+            bx.apply_attrs_callsite(&fn_abi, invokeret, callee_instance);
 
             if let Some((ret_dest, target)) = destination {
                 let mut ret_bx = fx.build_block(target);
@@ -128,7 +129,7 @@ impl<'a, 'tcx> TerminatorCodegenHelper<'tcx> {
             }
         } else {
             let llret = bx.call(fn_ptr, &llargs, self.funclet(fx));
-            bx.apply_attrs_callsite(&fn_abi, llret);
+            bx.apply_attrs_callsite(&fn_abi, llret, callee_instance);
             if fx.mir[self.bb].is_cleanup {
                 // Cleanup is always the cold path. Don't inline
                 // drop glue. Also, when there is a deeply-nested
@@ -324,7 +325,7 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
             args1 = [place.llval];
             &args1[..]
         };
-        let (drop_fn, fn_abi) = match ty.kind {
+        let (drop_fn_ptr, fn_abi) = match ty.kind {
             // FIXME(eddyb) perhaps move some of this logic into
             // `Instance::resolve_drop_in_place`?
             ty::Dynamic(..) => {
@@ -344,7 +345,8 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
             self,
             &mut bx,
             fn_abi,
-            drop_fn,
+            drop_fn_ptr,
+            Some(drop_fn),
             args,
             Some((ReturnDest::Nothing, target)),
             unwind,
@@ -431,7 +433,7 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
         let llfn = bx.get_fn_addr(instance);
 
         // Codegen the actual panic invoke/call.
-        helper.do_call(self, &mut bx, fn_abi, llfn, &args, None, cleanup);
+        helper.do_call(self, &mut bx, fn_abi, llfn, Some(instance), &args, None, cleanup);
     }
 
     /// Returns `true` if this is indeed a panic intrinsic and codegen is done.
@@ -501,6 +503,7 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
                     bx,
                     fn_abi,
                     llfn,
+                    Some(instance),
                     &[msg.0, msg.1, location],
                     destination.as_ref().map(|(_, bb)| (ReturnDest::Nothing, *bb)),
                     cleanup,
@@ -812,6 +815,7 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
             &mut bx,
             fn_abi,
             fn_ptr,
+            instance,
             &llargs,
             destination.as_ref().map(|&(_, target)| (ret_dest, target)),
             cleanup,

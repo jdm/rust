@@ -29,6 +29,7 @@ pub struct AllocatorMethod {
     pub name: &'static str,
     pub inputs: &'static [AllocatorTy],
     pub output: AllocatorTy,
+    pub mark_as_allocator: bool,
 }
 
 pub static ALLOCATOR_METHODS: &[AllocatorMethod] = &[
@@ -36,21 +37,25 @@ pub static ALLOCATOR_METHODS: &[AllocatorMethod] = &[
         name: "alloc",
         inputs: &[AllocatorTy::Layout],
         output: AllocatorTy::ResultPtr,
+        mark_as_allocator: true,
     },
     AllocatorMethod {
         name: "dealloc",
         inputs: &[AllocatorTy::Ptr, AllocatorTy::Layout],
         output: AllocatorTy::Unit,
+        mark_as_allocator: false,
     },
     AllocatorMethod {
         name: "realloc",
         inputs: &[AllocatorTy::Ptr, AllocatorTy::Layout, AllocatorTy::Usize],
         output: AllocatorTy::ResultPtr,
+        mark_as_allocator: true,
     },
     AllocatorMethod {
         name: "alloc_zeroed",
         inputs: &[AllocatorTy::Layout],
         output: AllocatorTy::ResultPtr,
+        mark_as_allocator: true,
     },
 ];
 

@@ -1911,6 +1911,13 @@ extern "C" {
     pub fn LLVMRustDIBuilderCreateOpDeref() -> i64;
     pub fn LLVMRustDIBuilderCreateOpPlusUconst() -> i64;
 
+    pub fn LLVMRustInstructionSetMetadata(
+        Instruction: &Value,
+        Kind: *const c_char,
+        KindLen: size_t,
+        Node: &Metadata
+    );
+
     #[allow(improper_ctypes)]
     pub fn LLVMRustWriteTypeToString(Type: &Type, s: &RustString);
     #[allow(improper_ctypes)]

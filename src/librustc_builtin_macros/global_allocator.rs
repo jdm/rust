@@ -73,7 +73,7 @@ impl AllocFnFactory<'_, '_> {
         let item = self.cx.item(
             self.span,
             self.cx.ident_of(&self.kind.fn_name(method.name), self.span),
-            self.attrs(),
+            self.attrs(method.mark_as_allocator),
             kind,
         );
         self.cx.stmt_item(self.span, item)
@@ -94,10 +94,16 @@ impl AllocFnFactory<'_, '_> {
         self.cx.expr_call(self.span, method, args)
     }
 
-    fn attrs(&self) -> Vec<Attribute> {
+    fn attrs(&self, allocator_fn: bool) -> Vec<Attribute> {
         let special = sym::rustc_std_internal_symbol;
         let special = self.cx.meta_word(self.span, special);
-        vec![self.cx.attribute(special)]
+        let mut attrs = vec![self.cx.attribute(special)];
+        if allocator_fn {
+            let allocator_fn = sym::rustc_allocator_fn;
+            let allocator_fn = self.cx.meta_word(self.span, allocator_fn);
+            attrs.push(self.cx.attribute(allocator_fn));
+        }
+        attrs
     }
 
     fn arg_ty(

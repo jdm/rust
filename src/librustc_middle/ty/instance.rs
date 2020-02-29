@@ -219,6 +219,12 @@ impl<'tcx> InstanceDef<'tcx> {
             _ => false,
         }
     }
+
+    pub fn is_heap_allocation(&self, tcx: TyCtxt<'_>) -> bool {
+        let def_id = self.def_id();
+        println!("checking {:?}", def_id);
+        tcx.codegen_fn_attrs(def_id).flags.contains(CodegenFnAttrFlags::ALLOCATOR_FN)
+    }
 }
 
 impl<'tcx> fmt::Display for Instance<'tcx> {

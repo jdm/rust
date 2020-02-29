@@ -11,7 +11,7 @@ use rustc_codegen_ssa::traits::*;
 use rustc_codegen_ssa::MemFlags;
 use rustc_middle::bug;
 pub use rustc_middle::ty::layout::{FAT_PTR_ADDR, FAT_PTR_EXTRA};
-use rustc_middle::ty::Ty;
+use rustc_middle::ty::{Instance, Ty};
 use rustc_target::abi::call::ArgAbi;
 pub use rustc_target::abi::call::*;
 use rustc_target::abi::{self, HasDataLayout, Int, LayoutOf};
@@ -305,7 +305,7 @@ pub trait FnAbiLlvmExt<'tcx> {
     fn ptr_to_llvm_type(&self, cx: &CodegenCx<'ll, 'tcx>) -> &'ll Type;
     fn llvm_cconv(&self) -> llvm::CallConv;
     fn apply_attrs_llfn(&self, cx: &CodegenCx<'ll, 'tcx>, llfn: &'ll Value);
-    fn apply_attrs_callsite(&self, bx: &mut Builder<'a, 'll, 'tcx>, callsite: &'ll Value);
+    fn apply_attrs_callsite(&self, bx: &mut Builder<'a, 'll, 'tcx>, callsite: &'ll Value, instance: Option<Instance<'tcx>>);
 }
 
 impl<'tcx> FnAbiLlvmExt<'tcx> for FnAbi<'tcx, Ty<'tcx>> {
@@ -433,7 +433,7 @@ impl<'tcx> FnAbiLlvmExt<'tcx> for FnAbi<'tcx, Ty<'tcx>> {
         }
     }
 
-    fn apply_attrs_callsite(&self, bx: &mut Builder<'a, 'll, 'tcx>, callsite: &'ll Value) {
+    fn apply_attrs_callsite(&self, bx: &mut Builder<'a, 'll, 'tcx>, callsite: &'ll Value, instance: Option<Instance<'tcx>>) {
         // FIXME(wesleywiser, eddyb): We should apply `nounwind` and `noreturn` as appropriate to this callsite.
 
         let mut i = 0;
@@ -448,6 +448,12 @@ impl<'tcx> FnAbiLlvmExt<'tcx> for FnAbi<'tcx, Ty<'tcx>> {
             PassMode::Indirect(ref attrs, _) => apply(attrs, Some(self.ret.layout.llvm_type(bx))),
             _ => {}
         }
+
+        if instance.map_or(false, |i| i.def.is_heap_allocation(bx.cx.tcx)) {
+            println!("marking heap allocation");
+            bx.mark_heap_allocation(callsite, self.ret.layout.ty);
+        }
+
         if let abi::Abi::Scalar(ref scalar) = self.ret.layout.abi {
             // If the value is a boolean, the range is 0..2 and that ultimately
             // become 0..0 when the type becomes i1, which would be rejected
@@ -490,8 +496,8 @@ impl<'tcx> FnAbiLlvmExt<'tcx> for FnAbi<'tcx, Ty<'tcx>> {
 }
 
 impl AbiBuilderMethods<'tcx> for Builder<'a, 'll, 'tcx> {
-    fn apply_attrs_callsite(&mut self, fn_abi: &FnAbi<'tcx, Ty<'tcx>>, callsite: Self::Value) {
-        fn_abi.apply_attrs_callsite(self, callsite)
+    fn apply_attrs_callsite(&mut self, fn_abi: &FnAbi<'tcx, Ty<'tcx>>, callsite: Self::Value, instance: Option<Instance<'tcx>>) {
+        fn_abi.apply_attrs_callsite(self, callsite, instance)
     }
 
     fn get_param(&self, index: usize) -> Self::Value {

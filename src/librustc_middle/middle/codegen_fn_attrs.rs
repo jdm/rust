@@ -77,6 +77,9 @@ bitflags! {
         const NO_SANITIZE_THREAD  = 1 << 14;
         /// All `#[no_sanitize(...)]` attributes.
         const NO_SANITIZE_ANY = Self::NO_SANITIZE_ADDRESS.bits | Self::NO_SANITIZE_MEMORY.bits | Self::NO_SANITIZE_THREAD.bits;
+        /// `#[rustc_allocator_fn]`: a hint to LLVM that this function returns a pointer
+        /// to newly-allocated heap memory.
+        const ALLOCATOR_FN = 1 << 15;
     }
 }
 

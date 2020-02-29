@@ -618,6 +618,7 @@ symbols! {
         RustcDecodable,
         RustcEncodable,
         rustc_allocator,
+        rustc_allocator_fn,
         rustc_allocator_nounwind,
         rustc_allow_const_fn_ptr,
         rustc_args_required_const,

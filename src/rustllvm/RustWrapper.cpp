@@ -1026,6 +1026,16 @@ extern "C" int64_t LLVMRustDIBuilderCreateOpPlusUconst() {
   return dwarf::DW_OP_plus_uconst;
 }
 
+extern "C" void LLVMRustInstructionSetMetadata(LLVMValueRef Instruction,
+                                               const char *Kind,
+                                               size_t KindLen,
+                                               LLVMMetadataRef Node) {
+  if (auto I = llvm::dyn_cast<llvm::Instruction>(unwrap<llvm::Value>(Instruction))) {
+    StringRef KindRef(Kind, KindLen);
+    I->setMetadata(KindRef, unwrapDIPtr<MDNode>(Node));
+  }
+}
+
 extern "C" void LLVMRustWriteTypeToString(LLVMTypeRef Ty, RustStringRef Str) {
   RawRustStringOstream OS(Str);
   unwrap<llvm::Type>(Ty)->print(OS);
